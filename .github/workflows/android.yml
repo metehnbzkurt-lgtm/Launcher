@@ -1,0 +1,54 @@
+name: Android build
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unzip and locate Gradle project
+        id: loc
+        run: |
+          if [ ! -f settings.gradle.kts ]; then
+            for z in ./*.zip; do
+              [ -f "$z" ] && unzip -q -o "$z" -d _src
+            done
+          fi
+          F=$(find . -name settings.gradle.kts -not -path "*/build/*" | head -n 1)
+          if [ -z "$F" ]; then
+            echo "::error::settings.gradle.kts not found (zip missing?)"
+            ls -la
+            exit 1
+          fi
+          D=$(dirname "$F")
+          echo "Project dir: $D"
+          echo "dir=$D" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Accept Android SDK licenses
+        run: |
+          SDKM=$(ls "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager | head -n 1)
+          yes | "$SDKM" --licenses > /dev/null || true
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build debug APK
+        working-directory: ${{ steps.loc.outputs.dir }}
+        run: gradle assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: hyper-modern-launcher-debug
+          path: ${{ steps.loc.outputs.dir }}/app/build/outputs/apk/debug/app-debug.apk
