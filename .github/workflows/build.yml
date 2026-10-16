@@ -1,1 +1,36 @@
+name: Build APK
 
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Proje zip olarak yuklendiyse otomatik ac
+      - name: Zip varsa ac
+        run: |
+          if [ ! -f settings.gradle ]; then
+            for z in *.zip; do [ -f "$z" ] && unzip -o "$z"; done
+          fi
+          ls -la
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.5
+
+      - name: Derle
+        run: gradle assembleDebug --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CustomLauncher-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
