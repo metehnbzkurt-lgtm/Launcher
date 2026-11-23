@@ -1,0 +1,29 @@
+name: Android Build
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Zip / ic ice klasor duzeltmesi
+        run: |
+          ls -la
+          ZIP=$(ls *.zip 2>/dev/null | head -n 1 || true)
+          if [ -n "$ZIP" ]; then echo "Zip bulundu: $ZIP"; unzip -o "$ZIP" -d extracted; if [ -d "extracted/app" ]; then cp -r extracted/. ./; else SUB=$(find extracted -maxdepth 2 -name "app" -type d | head -n 1 | xargs dirname); cp -r "$SUB"/. ./ 2>/dev/null || true; fi; rm -rf extracted; fi
+          if [ ! -d "app" ]; then SUB=$(find . -maxdepth 3 -name "app" -type d -not -path "./.git*" | head -n 1 | xargs dirname || true); if [ -n "$SUB" ] && [ "$SUB" != "." ]; then cp -r "$SUB"/. ./; fi; fi
+          test -f app/build.gradle.kts || (echo "app/build.gradle.kts bulunamadi" && exit 1)
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.9
+      - name: Build Release APK
+        run: gradle --no-daemon assembleRelease
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: app/build/outputs/apk/release/*.apk
